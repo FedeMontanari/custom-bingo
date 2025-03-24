@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import MaxWidthWrapper from "@/components/max-width-wrapper";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
+import { useEffect } from "react";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useEffect } from "react";
+import { api } from "@/trpc/react";
+import { useRouter } from "next/navigation";
+import { toast } from "@/hooks/use-toast";
 
 const newGameFormSchema = z.object({
   title: z.string().min(2, {
@@ -42,6 +45,22 @@ const newGameFormSchema = z.object({
 const numOptions = Array.from({ length: 10 }, (_, i) => i + 1);
 
 export default function NewGamePage() {
+  const router = useRouter();
+
+  const createGameMutation = api.game.create.useMutation({
+    onSuccess: (data) => {
+      router.push(`/game/${data.code}`);
+    },
+    onError: (error) => {
+      console.error(error);
+      toast({
+        title: "Error creating game",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const form = useForm<z.infer<typeof newGameFormSchema>>({
     resolver: zodResolver(newGameFormSchema),
     defaultValues: {
@@ -57,7 +76,15 @@ export default function NewGamePage() {
   const content = useWatch({ name: "content", control: form.control });
 
   function onSubmit(values: z.infer<typeof newGameFormSchema>) {
-    console.log(values);
+    createGameMutation.mutate({
+      title: values.title,
+      rows: values.rows,
+      cols: values.cols,
+      content: values.content,
+      user: {
+        isGuest: true,
+      },
+    });
   }
 
   useEffect(() => {
@@ -202,11 +229,14 @@ export default function NewGamePage() {
                 variant="neutral"
                 type="reset"
                 size="lg"
-                onClick={() => form.reset()}
+                onClick={(e) => {
+                  e.preventDefault();
+                  form.reset();
+                }}
               >
                 Reset
               </Button>
-              <Button type="submit" size="lg">
+              <Button size="lg" type="submit">
                 Create
               </Button>
             </div>

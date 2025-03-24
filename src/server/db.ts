@@ -1,7 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 
 const createPrismaClient = () => {
-  new PrismaClient();
+  return new PrismaClient();
 };
 
 const globalForPrisma = globalThis as unknown as {
