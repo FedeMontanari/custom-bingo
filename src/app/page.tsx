@@ -1,101 +1,103 @@
 import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
+import Link from "next/link";
+import MaxWidthWrapper from "@/components/max-width-wrapper";
 
 export default function Home() {
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <MaxWidthWrapper className="my-20 space-y-32">
+      <div className="flex items-center gap-14 max-lg:flex-col">
+        <div className="relative">
+          <Image
+            src="/img/lycee.jpg"
+            alt="Hero"
+            width={500}
+            height={500}
+            className="border-8 border-blue-400"
+          />
+          <div className="absolute inset-[3px] border-2 border-border"></div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+        <div className="lg:w-1/2 space-y-5">
+          <h4 className="underline max-lg:text-center">
+            Welcome to Custom Bingo Online
+          </h4>
+          <h1 className="text-4xl font-bold max-lg:text-center">
+            Play Custom Bingo
+            <br />
+            <span className="text-blue-500">Create</span> or{" "}
+            <span className="text-blue-500">Join</span> a game.
+          </h1>
+          <h3 className="max-lg:text-center">
+            Play Custom Bingo <span className="text-blue-500">Create</span> or{" "}
+            <span className="text-blue-500">Join</span> a game.
+          </h3>
+          <Tabs defaultValue="create">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger
+                className={cn(`data-[state=active]:bg-blue-100`)}
+                value="create"
+              >
+                Create
+              </TabsTrigger>
+              <TabsTrigger
+                className={cn(`data-[state=active]:bg-blue-100`)}
+                value="join"
+              >
+                Join
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="create">
+              <Card className="bg-blue-100">
+                <CardHeader>
+                  <CardTitle>Create a custom Bingo card</CardTitle>
+                  <CardDescription>
+                    Fill each cell with a word or phrase.
+                    <br />
+                    You can use emojis 😎 or even images 🖼️.
+                    <br />
+                    Once you're done, copy the code of your card and share it
+                    around!
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex justify-end">
+                  <Button asChild variant="neutral">
+                    <Link href="/new-game">Create</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            </TabsContent>
+            <TabsContent value="join">
+              <Card className="bg-blue-100">
+                <CardHeader>
+                  <CardTitle>Join a custom Bingo card</CardTitle>
+                  <CardDescription>
+                    Enter the code of the card you want to join.
+                    <br />
+                    If you don't have the code, ask the creator to send it to
+                    you.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex gap-4">
+                    <Input placeholder="Enter a code" />
+                    <Button variant="neutral">Join</Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
+    </MaxWidthWrapper>
   );
 }
