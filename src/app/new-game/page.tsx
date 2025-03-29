@@ -28,8 +28,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/trpc/react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
 
 const newGameFormSchema = z.object({
+  organizer: z.string().min(2, {
+    message: "Organizer must be at least 2 characters.",
+  }),
   title: z.string().min(2, {
     message: "Title must be at least 2 characters.",
   }),
@@ -49,6 +53,8 @@ export default function NewGamePage() {
 
   const createGameMutation = api.game.create.useMutation({
     onSuccess: (data) => {
+      sessionStorage.setItem("userName", form.getValues("organizer"));
+      sessionStorage.setItem("gameCode", data.code);
       router.push(`/game/${data.code}`);
     },
     onError: (error) => {
@@ -81,9 +87,7 @@ export default function NewGamePage() {
       rows: values.rows,
       cols: values.cols,
       content: values.content,
-      user: {
-        isGuest: true,
-      },
+      organizer: values.organizer,
     });
   }
 
@@ -144,6 +148,22 @@ export default function NewGamePage() {
               </div>
               <div>
                 <h3>Game Settings</h3>
+                <FormField
+                  control={form.control}
+                  name="organizer"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Organizer</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Your Name" {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        This is the name of the organizer of the game.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <FormField
                   control={form.control}
                   name="title"
@@ -236,8 +256,19 @@ export default function NewGamePage() {
               >
                 Reset
               </Button>
-              <Button size="lg" type="submit">
-                Create
+              <Button
+                disabled={createGameMutation.isPending}
+                size="lg"
+                type="submit"
+              >
+                {createGameMutation.isPending ? (
+                  <>
+                    Creating
+                    <Loader2 className="w-4 h-4 animate-spin inline" />
+                  </>
+                ) : (
+                  "Create"
+                )}
               </Button>
             </div>
           </form>

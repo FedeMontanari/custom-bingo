@@ -1,3 +1,10 @@
+generator zod {
+  provider = "zod-prisma-types"
+  output   = "./generated/zod"
+  writeBarrelFiles = "false"
+  useMultipleFiles = "true"
+}
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,61 +15,32 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-model User {
-  id   String @id @default(cuid())
-  name String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  createdGames BingoGame[]  @relation("GameCreator")
-  playerGames  PlayerGame[]
-}
-
 model BingoGame {
-  id       String  @id @default(cuid())
-  code     String  @unique // Shareable code for joining
-  title    String
-  rows     Int
-  cols     Int
-  content  Json // Array of cell contents (text, emojis, etc.)
-  isActive Boolean @default(false)
+  id        String   @id @default(cuid())
+  code      String   @unique // Shareable code for joining
+  title     String
+  rows      Int
+  cols      Int
+  content   Json // Array of cell contents (text, emojis, etc.)
+  organizer String
+  players   String[]
+  isActive  Boolean  @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  creator     User         @relation("GameCreator", fields: [creatorId], references: [id])
-  creatorId   String
-  players     PlayerGame[]
-  calledItems CalledItem[]
+  BingoCard BingoCard[]
 }
 
-model PlayerGame {
-  id String @id @default(cuid())
-
-  // Player's card state
+model BingoCard {
+  id        String    @id @default(cuid())
+  gameId    String
   cardState Json // Array of marked cells
   hasWon    Boolean   @default(false)
   wonAt     DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  user   User      @relation(fields: [userId], references: [id])
-  userId String
-  game   BingoGame @relation(fields: [gameId], references: [id])
-  gameId String
-
-  @@unique([userId, gameId])
-}
-
-model CalledItem {
-  id       String @id @default(cuid())
-  gameId   String
-  content  String // The item that was called (text, emoji, etc.)
-  position Int // The position in the original content array
-
-  createdAt DateTime @default(now())
 
   game BingoGame @relation(fields: [gameId], references: [id])
 }

@@ -1,0 +1,40 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated/prisma"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model BingoGame {
+  id        String   @id @default(cuid())
+  code      String   @unique // Shareable code for joining
+  title     String
+  rows      Int
+  cols      Int
+  content   Json // Array of cell contents (text, emojis, etc.)
+  organizer String
+  players   String[]
+  isActive  Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  BingoCard BingoCard[]
+}
+
+model BingoCard {
+  id        String    @id @default(cuid())
+  gameId    String
+  cardState Json // Array of marked cells
+  hasWon    Boolean   @default(false)
+  wonAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  game BingoGame @relation(fields: [gameId], references: [id])
+}
