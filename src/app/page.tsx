@@ -63,7 +63,7 @@ export default function Home() {
                   <CardDescription>
                     Fill each cell with a word or phrase.
                     <br />
-                    You can use emojis 😎 or even images 🖼️.
+                    You can use emojis too 😎
                     <br />
                     Once you're done, copy the code of your card and share it
                     around!

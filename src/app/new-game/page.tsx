@@ -54,7 +54,7 @@ export default function NewGamePage() {
   const createGameMutation = api.game.create.useMutation({
     onSuccess: (data) => {
       sessionStorage.setItem("userName", form.getValues("organizer"));
-      sessionStorage.setItem("gameCode", data.code);
+      // sessionStorage.setItem("gameCode", data.code);
       router.push(`/game/${data.code}`);
     },
     onError: (error) => {
