@@ -32,9 +32,6 @@ export default function GamePage() {
   const params = useParams();
 
   const game = api.game.getByCode.useQuery({ code: params.code as string });
-  const liveUpdate = api.game.liveUpdate.useSubscription({
-    code: params.code as string,
-  });
 
   useEffect(() => {
     const storedName = sessionStorage.getItem("userName");
