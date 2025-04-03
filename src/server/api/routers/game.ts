@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "../trpc";
 import generateCode from "@/server/utils/generate-code";
 import BingoGameSchema from "../../../../prisma/generated/zod/modelSchema/BingoGameSchema";
+import BingoCardSchema from "../../../../prisma/generated/zod/modelSchema/BingoCardSchema";
 
 export const gameRouter = createTRPCRouter({
   create: publicProcedure
@@ -48,5 +49,26 @@ export const gameRouter = createTRPCRouter({
       }
 
       return game;
+    }),
+  createCard: publicProcedure
+    .input(z.object({ code: z.string(), playerName: z.string() }))
+    .output(BingoCardSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { code, playerName } = input;
+
+      const game = await ctx.db.bingoGame.findUnique({ where: { code } });
+
+      if (!game) {
+        throw new Error("Game not found");
+      }
+
+      const card = await ctx.db.bingoCard.create({
+        data: {
+          gameId: game.id,
+          playerName,
+        },
+      });
+
+      return card;
     }),
 });

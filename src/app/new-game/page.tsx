@@ -29,6 +29,7 @@ import { api } from "@/trpc/react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { realtimeClient } from "@/server/realtime";
 
 const newGameFormSchema = z.object({
   organizer: z.string().min(2, {
@@ -54,7 +55,10 @@ export default function NewGamePage() {
   const createGameMutation = api.game.create.useMutation({
     onSuccess: (data) => {
       sessionStorage.setItem("userName", form.getValues("organizer"));
-      // sessionStorage.setItem("gameCode", data.code);
+      // Create the game channel on Supabase Realtime
+      realtimeClient.channel(`game-${data.code}`);
+
+      // Redirect to the game page
       router.push(`/game/${data.code}`);
     },
     onError: (error) => {
@@ -77,10 +81,6 @@ export default function NewGamePage() {
     },
   });
 
-  const rows = useWatch({ name: "rows", control: form.control });
-  const cols = useWatch({ name: "cols", control: form.control });
-  const content = useWatch({ name: "content", control: form.control });
-
   function onSubmit(values: z.infer<typeof newGameFormSchema>) {
     createGameMutation.mutate({
       title: values.title,
@@ -90,6 +90,11 @@ export default function NewGamePage() {
       organizer: values.organizer,
     });
   }
+
+  // Get the values from the form to set the content array
+  const rows = useWatch({ name: "rows", control: form.control });
+  const cols = useWatch({ name: "cols", control: form.control });
+  const content = useWatch({ name: "content", control: form.control });
 
   useEffect(() => {
     const totalContent = rows * cols;

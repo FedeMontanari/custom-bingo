@@ -5,7 +5,7 @@ import MaxWidthWrapper from "@/components/max-width-wrapper";
 import { api } from "@/trpc/react";
 import { useParams, useRouter } from "next/navigation";
 import { RoughNotation } from "react-rough-notation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import {
   AlertDialog,
@@ -23,8 +23,8 @@ import { Loader2 } from "lucide-react";
 
 export default function GamePage() {
   const [isUsernameOpen, setIsUsernameOpen] = useState(false);
-  const [userName, setUserName] = useState(
-    sessionStorage.getItem("userName") ?? ""
+  const [userName, setUserName] = useState<string | null>(
+    sessionStorage.getItem("userName")
   );
   const [markedItems, setMarkedItems] = useState<Set<number>>(new Set());
 
@@ -33,15 +33,14 @@ export default function GamePage() {
 
   const game = api.game.getByCode.useQuery({ code: params.code as string });
 
-  useEffect(() => {
-    const storedName = sessionStorage.getItem("userName");
-    if (storedName) {
-      setUserName(storedName);
-    }
-    if (!userName) {
-      setIsUsernameOpen(true);
-    }
-  }, [userName]);
+  const createCardMutation = api.game.createCard.useMutation({
+    onSuccess: (data) => {
+      console.log(data);
+    },
+    onError: (error) => {
+      console.error(error);
+    },
+  });
 
   function toggleMarked(index: number) {
     setMarkedItems((prev) => {
@@ -53,6 +52,15 @@ export default function GamePage() {
       }
       return newSet;
     });
+  }
+
+  if (createCardMutation.isPending) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="animate-spin" />
+        Creating card...
+      </div>
+    );
   }
 
   if (game.isLoading) {
@@ -145,7 +153,11 @@ export default function GamePage() {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                sessionStorage.setItem("userName", userName);
+                sessionStorage.setItem("userName", userName as string);
+                createCardMutation.mutate({
+                  code: params.code as string,
+                  playerName: userName as string,
+                });
                 router.refresh();
               }}
               disabled={!userName}

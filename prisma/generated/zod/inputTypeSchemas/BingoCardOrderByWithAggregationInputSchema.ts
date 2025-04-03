@@ -10,8 +10,8 @@ import { BingoCardMinOrderByAggregateInputSchema } from './BingoCardMinOrderByAg
 export const BingoCardOrderByWithAggregationInputSchema: z.ZodType<Prisma.BingoCardOrderByWithAggregationInput> = z.object({
   id: z.lazy(() => SortOrderSchema).optional(),
   gameId: z.lazy(() => SortOrderSchema).optional(),
-  cardState: z.lazy(() => SortOrderSchema).optional(),
   hasWon: z.lazy(() => SortOrderSchema).optional(),
+  playerName: z.lazy(() => SortOrderSchema).optional(),
   wonAt: z.union([ z.lazy(() => SortOrderSchema),z.lazy(() => SortOrderInputSchema) ]).optional(),
   createdAt: z.lazy(() => SortOrderSchema).optional(),
   updatedAt: z.lazy(() => SortOrderSchema).optional(),

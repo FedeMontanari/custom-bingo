@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { JsonValueSchema } from '../inputTypeSchemas/JsonValueSchema'
 
 /////////////////////////////////////////
 // BINGO CARD SCHEMA
@@ -8,8 +7,8 @@ import { JsonValueSchema } from '../inputTypeSchemas/JsonValueSchema'
 export const BingoCardSchema = z.object({
   id: z.string().cuid(),
   gameId: z.string(),
-  cardState: JsonValueSchema,
   hasWon: z.boolean(),
+  playerName: z.string(),
   wonAt: z.coerce.date().nullable(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),

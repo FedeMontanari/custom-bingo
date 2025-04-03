@@ -6,8 +6,8 @@ import { SortOrderSchema } from './SortOrderSchema';
 export const BingoCardCountOrderByAggregateInputSchema: z.ZodType<Prisma.BingoCardCountOrderByAggregateInput> = z.object({
   id: z.lazy(() => SortOrderSchema).optional(),
   gameId: z.lazy(() => SortOrderSchema).optional(),
-  cardState: z.lazy(() => SortOrderSchema).optional(),
   hasWon: z.lazy(() => SortOrderSchema).optional(),
+  playerName: z.lazy(() => SortOrderSchema).optional(),
   wonAt: z.lazy(() => SortOrderSchema).optional(),
   createdAt: z.lazy(() => SortOrderSchema).optional(),
   updatedAt: z.lazy(() => SortOrderSchema).optional()

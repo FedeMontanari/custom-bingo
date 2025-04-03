@@ -1,6 +1,6 @@
 generator zod {
-  provider = "zod-prisma-types"
-  output   = "./generated/zod"
+  provider         = "zod-prisma-types"
+  output           = "./generated/zod"
   writeBarrelFiles = "false"
   useMultipleFiles = "true"
 }
@@ -33,14 +33,27 @@ model BingoGame {
 }
 
 model BingoCard {
-  id        String    @id @default(cuid())
-  gameId    String
-  cardState Json // Array of marked cells
-  hasWon    Boolean   @default(false)
-  wonAt     DateTime?
+  id         String      @id @default(cuid())
+  gameId     String
+  cardState  CardState[]
+  hasWon     Boolean     @default(false)
+  playerName String
+  wonAt      DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   game BingoGame @relation(fields: [gameId], references: [id])
+}
+
+model CardState {
+  id      String  @id @default(cuid())
+  content String
+  marked  Boolean @default(false)
+  cardId  String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  card BingoCard @relation(fields: [cardId], references: [id])
 }
