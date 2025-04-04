@@ -11,6 +11,7 @@ import {
 import { BingoGame } from "../../prisma/generated/prisma";
 import { api } from "@/trpc/react";
 import { realtimeClient } from "@/server/realtime";
+import { useRouter } from "next/navigation";
 
 interface GameStateContextType {
   game: BingoGame;
@@ -21,6 +22,7 @@ interface GameStateContextType {
   hasWon: boolean;
   winningPlayer: string | null;
   isGameActive: boolean;
+  resetGame: () => Promise<void>;
 }
 
 const GameStateContext = createContext<GameStateContextType | undefined>(
@@ -42,6 +44,8 @@ export function GameStateProvider({
   const [hasWon, setHasWon] = useState(false);
   const [winningPlayer, setWinningPlayer] = useState<string | null>(null);
   const hasWonRef = useRef(false);
+  const [gameState, setGameState] = useState(game);
+  const router = useRouter();
 
   // Query for the player's card
   const { data: card } = api.game.getCard.useQuery(
@@ -74,6 +78,11 @@ export function GameStateProvider({
     onSuccess: (data) => {
       if (data.hasWon) {
         setHasWon(true);
+        // Also update game state to inactive immediately for the organizer
+        setGameState(prev => ({
+          ...prev,
+          isActive: false
+        }));
       }
     },
     onError: (error) => {
@@ -81,7 +90,72 @@ export function GameStateProvider({
     },
   });
 
-  // Subscribe to win events
+  const trpcUtils = api.useUtils();
+
+  const resetGameMutation = api.game.resetGame.useMutation({
+    onSuccess: (data) => {
+      // Update local game state
+      setGameState(data);
+      // Reset local win state
+      setHasWon(false);
+      hasWonRef.current = false;
+      setWinningPlayer(null);
+      
+      // Clear marked items with a small delay to ensure smooth transition
+      setTimeout(() => {
+        setMarkedItems(new Set());
+      }, 50);
+      
+      // Invalidate queries to ensure fresh data
+      trpcUtils.game.getCard.invalidate();
+      trpcUtils.game.getWinningCard.invalidate();
+      
+      sendDebugInfo("game-reset-success", { 
+        organizer: userName,
+        gameCode: game.code
+      });
+      
+      // Force a full page refresh after a short delay
+      setTimeout(() => {
+        router.refresh();
+      }, 100);
+    },
+    onError: (error) => {
+      console.error("Error resetting game:", error);
+      sendDebugInfo("game-reset-error", { 
+        error: error.message,
+        organizer: userName
+      });
+    },
+  });
+
+  const resetGame = () => {
+    if (!isOrganizer) {
+      console.error("Only the organizer can reset the game");
+      return Promise.reject(new Error("Only the organizer can reset the game"));
+    }
+
+    sendDebugInfo("game-reset-requested", { organizer: userName });
+    
+    return new Promise<void>((resolve, reject) => {
+      resetGameMutation.mutate(
+        {
+          code: game.code as string,
+          organizerName: userName,
+        },
+        {
+          onSuccess: () => {
+            resolve();
+          },
+          onError: (error) => {
+            reject(error);
+          },
+        }
+      );
+    });
+  };
+
+  // Subscribe to win events and game reset events
   useEffect(() => {
     const channel = realtimeClient
       .channel("game-" + game.code)
@@ -89,6 +163,43 @@ export function GameStateProvider({
         if (payload.playerName !== userName) {
           setWinningPlayer(payload.playerName);
         }
+        // Update game state to inactive for all players immediately
+        setGameState(prev => ({
+          ...prev,
+          isActive: false
+        }));
+      })
+      .on("broadcast", { event: "game-reset" }, ({ payload }) => {
+        // Reset local win state
+        setHasWon(false);
+        hasWonRef.current = false;
+        setWinningPlayer(null);
+        
+        // Clear marked items with a small delay to ensure smooth transition
+        setTimeout(() => {
+          setMarkedItems(new Set());
+        }, 50);
+        
+        // Update game active state
+        setGameState(prev => ({
+          ...prev,
+          isActive: true
+        }));
+        
+        // Invalidate queries to ensure fresh data
+        trpcUtils.game.getCard.invalidate();
+        trpcUtils.game.getWinningCard.invalidate();
+        
+        sendDebugInfo("game-reset-received", { 
+          player: userName,
+          resetTimestamp: payload.timestamp,
+          organizerName: payload.organizerName
+        });
+        
+        // Force a full page refresh after a short delay
+        setTimeout(() => {
+          router.refresh();
+        }, 100);
       })
       .on("broadcast", { event: "debug-info" }, ({ payload }) => {
         console.log(
@@ -198,14 +309,15 @@ export function GameStateProvider({
   return (
     <GameStateContext.Provider
       value={{
-        game,
+        game: gameState,
         userName,
         isOrganizer,
         markedItems,
         toggleMarked,
         hasWon,
         winningPlayer,
-        isGameActive: game.isActive,
+        isGameActive: gameState.isActive,
+        resetGame,
       }}
     >
       {children}

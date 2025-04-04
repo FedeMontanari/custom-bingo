@@ -1,6 +1,5 @@
 "use client";
 
-import { RoughNotation } from "react-rough-notation";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,26 +12,280 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@radix-ui/react-label";
-import { WiredCard } from "wired-elements-react";
+import dynamic from "next/dynamic";
 import MaxWidthWrapper from "@/components/max-width-wrapper";
 import { BingoGame } from "../../../../../prisma/generated/prisma";
 import { useRouter } from "next/navigation";
 import { api } from "@/trpc/react";
 import { GameStateProvider, useGameState } from "@/lib/game-state-context";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
+import React, { memo } from "react";
+import { toast } from "@/hooks/use-toast";
+
+// Dynamically import components with SSR disabled
+const WiredCard = dynamic(
+  () => import("wired-elements-react").then((mod) => mod.WiredCard),
+  { ssr: false }
+);
+
+const RoughNotation = dynamic(
+  () => import("react-rough-notation").then((mod) => mod.RoughNotation),
+  { ssr: false }
+);
+
+// Bingo Cell component to handle loading states
+const BingoCell = memo(function BingoCell({
+  content,
+  index,
+  isMarked,
+  isActive,
+  onToggle,
+  forceRenderKey,
+  animationsEnabled = true,
+}: {
+  content: string;
+  index: number;
+  isMarked: boolean;
+  isActive: boolean;
+  onToggle: (index: number) => void;
+  forceRenderKey: number;
+  animationsEnabled?: boolean;
+}) {
+  const [isLoading, setIsLoading] = useState(true);
+  const [isClient, setIsClient] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [updateKey, setUpdateKey] = useState(0);
+  const [useFallback, setUseFallback] = useState(false);
+  const renderAttemptsRef = useRef(0);
+
+  // Add detailed logging to capture errors and conditions causing fallback rendering
+  useEffect(() => {
+    console.log("BingoCell initialized with:", {
+      content,
+      index,
+      isMarked,
+      isActive,
+      forceRenderKey,
+      animationsEnabled,
+    });
+
+    if (hasError) {
+      console.error("BingoCell encountered an error during initialization.");
+    }
+
+    if (useFallback) {
+      console.warn("BingoCell is using fallback rendering.");
+    }
+  }, [
+    content,
+    index,
+    isMarked,
+    isActive,
+    forceRenderKey,
+    animationsEnabled,
+    hasError,
+    useFallback,
+  ]);
+
+  // Add logging to render attempts
+  console.log("Render attempt:", renderAttemptsRef.current);
+
+  // Check if we're on the client and reset attempts on component mount
+  useEffect(() => {
+    try {
+      setIsClient(true);
+      setIsLoading(false);
+      renderAttemptsRef.current = 0;
+    } catch (error) {
+      setHasError(true);
+      console.error("Error initializing BingoCell:", error);
+    }
+  }, []);
+
+  // Ensure effect dependencies are correct
+  useEffect(() => {
+    const handleResize = () => {
+      setUpdateKey((prev) => prev + 1);
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    if (forceRenderKey) {
+      renderAttemptsRef.current = 0;
+      setUpdateKey((prev) => prev + 1);
+    }
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [forceRenderKey]);
+
+  // Special handling for RoughNotation animation
+  const [localAnimationsEnabled, setLocalAnimationsEnabled] =
+    useState(animationsEnabled);
+
+  useEffect(() => {
+    // Ensure animations are properly synced with parent component
+    setLocalAnimationsEnabled(animationsEnabled);
+
+    // If animations were disabled (during reset), re-enable them after a delay
+    if (!animationsEnabled) {
+      const timer = setTimeout(() => {
+        setLocalAnimationsEnabled(true);
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [animationsEnabled, forceRenderKey]);
+
+  // Switch to fallback if too many render attempts fail
+  useEffect(() => {
+    if (updateKey > 3 && !useFallback) {
+      // After 3 update attempts, switch to fallback rendering
+      setUseFallback(true);
+    }
+  }, [updateKey, useFallback]);
+
+  // Handle click
+  const handleClick = () => {
+    if (isActive && !isLoading) {
+      onToggle(index);
+    }
+  };
+
+  // Fallback rendering - simple div instead of WiredCard
+  const renderFallback = () => {
+    return (
+      <div
+        onClick={handleClick}
+        className={`min-h-20 flex items-center justify-center border-2 border-gray-400 rounded-md shadow-md ${
+          isActive ? "cursor-pointer" : "cursor-not-allowed opacity-50"
+        } ${isMarked ? "bg-red-50 border-red-500" : ""}`}
+      >
+        <span
+          className={`text-2xl font-bold ${isMarked ? "text-red-500" : ""}`}
+        >
+          {content}
+        </span>
+      </div>
+    );
+  };
+
+  // Show a placeholder if loading, not on client, or if there was an error
+  if (!isClient || isLoading || hasError) {
+    return renderFallback();
+  }
+
+  // Use fallback if we've had rendering issues
+  if (useFallback) {
+    return renderFallback();
+  }
+
+  // Try to render the wired card with error boundary
+  try {
+    renderAttemptsRef.current += 1;
+
+    // If we've tried to render too many times, switch to fallback
+    if (renderAttemptsRef.current > 20) {
+      setUseFallback(true);
+      console.log("Too many render attempts, switching to fallback");
+      return renderFallback();
+    }
+
+    return (
+      <WiredCard
+        key={`cell-${index}-${content}-${isActive}-${forceRenderKey}-${updateKey}`}
+        onClick={handleClick}
+        className={`min-h-20 flex items-center justify-center ${
+          isActive ? "cursor-pointer" : "cursor-not-allowed"
+        }`}
+      >
+        {/* @ts-expect-error WiredCard is not properly typed */}
+        <RoughNotation
+          key={`notation-${index}-${isMarked}-${forceRenderKey}-${updateKey}`}
+          type="circle"
+          color="red"
+          padding={10}
+          show={isMarked}
+          animationDuration={800}
+          animate={localAnimationsEnabled}
+        >
+          <span className="text-2xl font-bold">{content}</span>
+        </RoughNotation>
+      </WiredCard>
+    );
+  } catch (error) {
+    // Fallback to simple div if WiredCard fails
+    console.error("Error rendering WiredCard:", error);
+    setHasError(true);
+    return renderFallback();
+  }
+});
 
 function GameCardContent() {
   const {
     game,
     userName,
+    isOrganizer,
     markedItems,
     toggleMarked,
     hasWon,
     winningPlayer,
     isGameActive,
+    resetGame,
   } = useGameState();
 
   const content = game.content as string[];
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [resetNotification, setResetNotification] = useState(false);
+  const [forceRenderKey, setForceRenderKey] = useState(Date.now());
+  const prevGameActiveRef = useRef(isGameActive);
+  const [animationsEnabled, setAnimationsEnabled] = useState(true);
+  const [isResetting, setIsResetting] = useState(false);
+
+  // Show a custom toast notification when the game transitions from inactive to active (reset happens)
+  useEffect(() => {
+    if (isGameActive && !prevGameActiveRef.current) {
+      toast({
+        title: "Game Reset",
+        description: "Game has been reset! Ready to play again!",
+      });
+
+      // Temporarily disable animations while we reset
+      setAnimationsEnabled(false);
+
+      // Sequence of events to ensure proper reset rendering
+      const sequence = async () => {
+        window.dispatchEvent(new Event("resize"));
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        setForceRenderKey(Date.now() + 1);
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        window.dispatchEvent(new Event("resize"));
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        setAnimationsEnabled(true);
+      };
+
+      sequence();
+    }
+
+    prevGameActiveRef.current = isGameActive;
+  }, [isGameActive]);
+
+  // Add effect to force redraw after a small delay when marked items change
+  useEffect(() => {
+    if (markedItems.size === 0 && isGameActive) {
+      // This likely indicates a reset, force redraw after a delay
+      const timer = setTimeout(() => {
+        setForceRenderKey(Date.now());
+        // Trigger a resize event to help components redraw
+        window.dispatchEvent(new Event("resize"));
+      }, 200);
+
+      return () => clearTimeout(timer);
+    }
+  }, [markedItems.size, isGameActive]);
 
   return (
     <>
@@ -65,33 +318,85 @@ function GameCardContent() {
               This game has ended.
             </div>
           )}
+          {resetNotification && (
+            <div className="text-center py-2 px-4 bg-blue-100 border border-blue-300 rounded-md shadow-sm">
+              <p className="text-xl font-bold text-blue-700 animate-pulse flex items-center justify-center">
+                <RefreshCw className="h-5 w-5 mr-2 animate-spin" />
+                Game has been reset! Ready to play again!
+              </p>
+            </div>
+          )}
+
+          {/* Reset Game Button - Only visible to organizers when game is inactive */}
+          {isOrganizer && !isGameActive && (
+            <div className="flex justify-center my-4">
+              <Button
+                onClick={() => setResetDialogOpen(true)}
+                className="flex items-center gap-2"
+                disabled={isResetting}
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${isResetting ? "animate-spin" : ""}`}
+                />
+                {isResetting ? "Resetting..." : "Reset Game"}
+              </Button>
+            </div>
+          )}
+
+          {/* Reset Game Confirmation Dialog */}
+          <AlertDialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Reset Game</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to reset the game? This will clear all
+                  players&apos; marked items and allow the game to be played
+                  again.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={async () => {
+                    setIsResetting(true);
+                    await resetGame();
+                    setResetDialogOpen(false);
+                    setIsResetting(false);
+                  }}
+                  disabled={isResetting}
+                >
+                  {isResetting ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                      Resetting...
+                    </>
+                  ) : (
+                    "Reset Game"
+                  )}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
           <div
             className={`grid gap-1 ${!isGameActive ? "opacity-50" : ""}`}
             style={{
               gridTemplateColumns: `repeat(${game.cols}, minmax(0, 1fr))`,
             }}
+            key={`grid-${forceRenderKey}`}
           >
-            {content.map((content, index) => {
-              return (
-                <WiredCard
-                  key={content}
-                  onClick={() => isGameActive && toggleMarked(index)}
-                  className={`min-h-20 flex items-center justify-center ${
-                    isGameActive ? "cursor-pointer" : "cursor-not-allowed"
-                  }`}
-                >
-                  {/* @ts-expect-error WiredCard is not properly typed */}
-                  <RoughNotation
-                    type="circle"
-                    color="red"
-                    padding={10}
-                    show={markedItems.has(index)}
-                  >
-                    <span className="text-2xl font-bold">{content}</span>
-                  </RoughNotation>
-                </WiredCard>
-              );
-            })}
+            {content.map((cellContent, index) => (
+              <BingoCell
+                key={`${index}-${cellContent}-${isGameActive}-${forceRenderKey}`}
+                content={cellContent}
+                index={index}
+                isMarked={markedItems.has(index)}
+                isActive={isGameActive}
+                onToggle={toggleMarked}
+                forceRenderKey={forceRenderKey}
+                animationsEnabled={animationsEnabled}
+              />
+            ))}
           </div>
         </div>
       </MaxWidthWrapper>

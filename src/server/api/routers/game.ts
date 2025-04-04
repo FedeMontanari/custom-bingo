@@ -186,4 +186,56 @@ export const gameRouter = createTRPCRouter({
 
       return game;
     }),
+  resetGame: publicProcedure
+    .input(z.object({ 
+      code: z.string(), 
+      organizerName: z.string() 
+    }))
+    .output(BingoGameSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { code, organizerName } = input;
+      
+      // Find the game
+      const game = await ctx.db.bingoGame.findUnique({
+        where: { code },
+      });
+
+      if (!game) {
+        throw new Error("Game not found");
+      }
+
+      // Verify the requester is the organizer
+      if (game.organizer !== organizerName) {
+        throw new Error("Only the organizer can reset the game");
+      }
+
+      // Reset the game state
+      const updatedGame = await ctx.db.bingoGame.update({
+        where: { id: game.id },
+        data: { isActive: true },
+      });
+
+      // Reset all player cards for this game
+      await ctx.db.bingoCard.updateMany({
+        where: { gameId: game.id },
+        data: { 
+          hasWon: false,
+          wonAt: null 
+        },
+      });
+
+      // Notify all clients that the game has been reset
+      await realtimeClient
+        .channel('game-' + code)
+        .send({
+          type: 'broadcast',
+          event: 'game-reset',
+          payload: { 
+            organizerName,
+            timestamp: new Date().toISOString()
+          }
+        });
+
+      return updatedGame;
+    }),
 });
