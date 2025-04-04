@@ -54,7 +54,8 @@ export default function NewGamePage() {
 
   const createGameMutation = api.game.create.useMutation({
     onSuccess: (data) => {
-      sessionStorage.setItem("userName", form.getValues("organizer"));
+      const organizer = form.getValues("organizer");
+      document.cookie = `userName=${organizer}; path=/`;
       // Create the game channel on Supabase Realtime
       realtimeClient.channel(`game-${data.code}`);
 

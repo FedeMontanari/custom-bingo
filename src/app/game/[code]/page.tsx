@@ -9,7 +9,7 @@ export default async function GamePage({
 }) {
   const { code } = await params;
   const headersList = await headers();
-  const userName = headersList.get("x-user-name");
+  const userName = headersList.get("x-user-name") ?? "";
 
   const game = await api.game.getByCode({ code });
 
@@ -24,7 +24,7 @@ export default async function GamePage({
   return (
     <GameCardWrapper
       game={game}
-      userName={userName as string}
+      userName={userName}
       isOrganizer={game.organizer === userName}
     />
   );

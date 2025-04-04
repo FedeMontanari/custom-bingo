@@ -1,7 +1,6 @@
 "use client";
 
 import { RoughNotation } from "react-rough-notation";
-
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,45 +16,13 @@ import { Label } from "@radix-ui/react-label";
 import { WiredCard } from "wired-elements-react";
 import MaxWidthWrapper from "@/components/max-width-wrapper";
 import { BingoGame } from "../../../../../prisma/generated/prisma";
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/trpc/react";
+import { GameStateProvider, useGameState } from "@/lib/game-state-context";
+import { useEffect, useState } from "react";
 
-export default function GameCardWrapper({
-  game,
-  userName: userNameProp,
-  isOrganizer,
-}: {
-  game: BingoGame;
-  userName: string;
-  isOrganizer: boolean;
-}) {
-  const [markedItems, setMarkedItems] = useState<Set<number>>(new Set());
-  const [isUsernameOpen, setIsUsernameOpen] = useState(false);
-  const [userName, setUserName] = useState(userNameProp);
-
-  const router = useRouter();
-
-  const createCardMutation = api.game.createCard.useMutation({
-    onSuccess: (data) => {
-      console.log(data);
-    },
-    onError: (error) => {
-      console.error(error);
-    },
-  });
-
-  function toggleMarked(index: number) {
-    setMarkedItems((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(index)) {
-        newSet.delete(index);
-      } else {
-        newSet.add(index);
-      }
-      return newSet;
-    });
-  }
+function GameCardContent() {
+  const { game, userName, markedItems, toggleMarked, hasWon, winningPlayer, isGameActive } = useGameState();
 
   const content = game.content as string[];
 
@@ -75,8 +42,23 @@ export default function GameCardWrapper({
               Players: <span className="font-bold">{game.players.length}</span>
             </p>
           </div>
+          {hasWon && (
+            <div className="text-center text-2xl font-bold text-green-500">
+              BINGO! You've won!
+            </div>
+          )}
+          {winningPlayer && (
+            <div className="text-center text-2xl font-bold text-yellow-500">
+              {winningPlayer} has won the game!
+            </div>
+          )}
+          {!isGameActive && !hasWon && !winningPlayer && (
+            <div className="text-center text-2xl font-bold text-gray-500">
+              This game has ended.
+            </div>
+          )}
           <div
-            className="grid gap-1"
+            className={`grid gap-1 ${!isGameActive ? 'opacity-50' : ''}`}
             style={{
               gridTemplateColumns: `repeat(${game.cols}, minmax(0, 1fr))`,
             }}
@@ -85,8 +67,10 @@ export default function GameCardWrapper({
               return (
                 <WiredCard
                   key={content}
-                  onClick={() => toggleMarked(index)}
-                  className="cursor-pointer min-h-20 flex items-center justify-center"
+                  onClick={() => isGameActive && toggleMarked(index)}
+                  className={`min-h-20 flex items-center justify-center ${
+                    isGameActive ? 'cursor-pointer' : 'cursor-not-allowed'
+                  }`}
                 >
                   {/* @ts-expect-error WiredCard is not properly typed */}
                   <RoughNotation
@@ -103,7 +87,83 @@ export default function GameCardWrapper({
           </div>
         </div>
       </MaxWidthWrapper>
+    </>
+  );
+}
 
+export default function GameCardWrapper({
+  game,
+  userName: userNameProp,
+  isOrganizer,
+}: {
+  game: BingoGame;
+  userName: string;
+  isOrganizer: boolean;
+}) {
+  const [isUsernameOpen, setIsUsernameOpen] = useState(!userNameProp);
+  const [userName, setUserName] = useState(userNameProp);
+  const [tempUserName, setTempUserName] = useState(userNameProp);
+  const [hasCard, setHasCard] = useState(false);
+  const router = useRouter();
+
+  // Check if the user is actually the organizer by comparing with the game's organizer field
+  const isActuallyOrganizer = userName === game.organizer;
+
+  const { data: card, isLoading } = api.game.getCard.useQuery(
+    { code: game.code as string, playerName: userName },
+    { enabled: !!userName }
+  );
+
+  const createCardMutation = api.game.createCard.useMutation({
+    onSuccess: (data) => {
+      setHasCard(true);
+    },
+    onError: (error) => {
+      console.error(error);
+    },
+  });
+
+  useEffect(() => {
+    if (card) {
+      setHasCard(true);
+    }
+  }, [card]);
+
+  // If we have a username but it doesn't match the organizer when it should, reset to the correct state
+  useEffect(() => {
+    if (userName && isOrganizer && !isActuallyOrganizer) {
+      // If we're supposed to be the organizer but we're not, we need to get the actual username from cookies
+      const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+        const [key, value] = cookie.trim().split('=');
+        acc[key] = value;
+        return acc;
+      }, {} as Record<string, string>);
+
+      const storedUserName = cookies['userName'];
+      
+      if (storedUserName === game.organizer) {
+        // If the stored username matches the organizer, use that
+        setUserName(storedUserName);
+        setTempUserName(storedUserName);
+      } else {
+        // If no valid organizer cookie exists, redirect to home
+        router.push('/');
+      }
+    }
+  }, [userName, isOrganizer, isActuallyOrganizer, game.organizer, router]);
+
+  // Create a card for the organizer if they don't have one
+  useEffect(() => {
+    if (isActuallyOrganizer && !isLoading && !card && userName) {
+      createCardMutation.mutate({
+        code: game.code as string,
+        playerName: userName,
+      });
+    }
+  }, [isActuallyOrganizer, isLoading, card, userName, game.code]);
+
+  if (!userName || (!hasCard && !isLoading)) {
+    return (
       <AlertDialog open={isUsernameOpen} onOpenChange={setIsUsernameOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -115,10 +175,11 @@ export default function GameCardWrapper({
               </Label>
               <Input
                 onChange={(e) => {
-                  setUserName(e.target.value);
+                  setTempUserName(e.target.value);
                 }}
                 id="name"
                 type="text"
+                value={tempUserName}
               />
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -128,20 +189,27 @@ export default function GameCardWrapper({
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                sessionStorage.setItem("userName", userName as string);
+                document.cookie = `userName=${tempUserName}; path=/`;
+                setUserName(tempUserName);
                 createCardMutation.mutate({
                   code: game.code as string,
-                  playerName: userName as string,
+                  playerName: tempUserName,
                 });
                 router.refresh();
               }}
-              disabled={!userName}
+              disabled={!tempUserName}
             >
               Continue
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    );
+  }
+
+  return (
+    <GameStateProvider game={game} userName={userName} isOrganizer={isActuallyOrganizer}>
+      <GameCardContent />
+    </GameStateProvider>
   );
 }
