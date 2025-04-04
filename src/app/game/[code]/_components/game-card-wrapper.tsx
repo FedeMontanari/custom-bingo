@@ -22,7 +22,15 @@ import { GameStateProvider, useGameState } from "@/lib/game-state-context";
 import { useEffect, useState } from "react";
 
 function GameCardContent() {
-  const { game, userName, markedItems, toggleMarked, hasWon, winningPlayer, isGameActive } = useGameState();
+  const {
+    game,
+    userName,
+    markedItems,
+    toggleMarked,
+    hasWon,
+    winningPlayer,
+    isGameActive,
+  } = useGameState();
 
   const content = game.content as string[];
 
@@ -44,7 +52,7 @@ function GameCardContent() {
           </div>
           {hasWon && (
             <div className="text-center text-2xl font-bold text-green-500">
-              BINGO! You've won!
+              BINGO! You&apos;ve won!
             </div>
           )}
           {winningPlayer && (
@@ -58,7 +66,7 @@ function GameCardContent() {
             </div>
           )}
           <div
-            className={`grid gap-1 ${!isGameActive ? 'opacity-50' : ''}`}
+            className={`grid gap-1 ${!isGameActive ? "opacity-50" : ""}`}
             style={{
               gridTemplateColumns: `repeat(${game.cols}, minmax(0, 1fr))`,
             }}
@@ -69,7 +77,7 @@ function GameCardContent() {
                   key={content}
                   onClick={() => isGameActive && toggleMarked(index)}
                   className={`min-h-20 flex items-center justify-center ${
-                    isGameActive ? 'cursor-pointer' : 'cursor-not-allowed'
+                    isGameActive ? "cursor-pointer" : "cursor-not-allowed"
                   }`}
                 >
                   {/* @ts-expect-error WiredCard is not properly typed */}
@@ -115,7 +123,7 @@ export default function GameCardWrapper({
   );
 
   const createCardMutation = api.game.createCard.useMutation({
-    onSuccess: (data) => {
+    onSuccess: () => {
       setHasCard(true);
     },
     onError: (error) => {
@@ -133,21 +141,21 @@ export default function GameCardWrapper({
   useEffect(() => {
     if (userName && isOrganizer && !isActuallyOrganizer) {
       // If we're supposed to be the organizer but we're not, we need to get the actual username from cookies
-      const cookies = document.cookie.split(';').reduce((acc, cookie) => {
-        const [key, value] = cookie.trim().split('=');
+      const cookies = document.cookie.split(";").reduce((acc, cookie) => {
+        const [key, value] = cookie.trim().split("=");
         acc[key] = value;
         return acc;
       }, {} as Record<string, string>);
 
-      const storedUserName = cookies['userName'];
-      
+      const storedUserName = cookies["userName"];
+
       if (storedUserName === game.organizer) {
         // If the stored username matches the organizer, use that
         setUserName(storedUserName);
         setTempUserName(storedUserName);
       } else {
         // If no valid organizer cookie exists, redirect to home
-        router.push('/');
+        router.push("/");
       }
     }
   }, [userName, isOrganizer, isActuallyOrganizer, game.organizer, router]);
@@ -160,6 +168,7 @@ export default function GameCardWrapper({
         playerName: userName,
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActuallyOrganizer, isLoading, card, userName, game.code]);
 
   if (!userName || (!hasCard && !isLoading)) {
@@ -208,7 +217,11 @@ export default function GameCardWrapper({
   }
 
   return (
-    <GameStateProvider game={game} userName={userName} isOrganizer={isActuallyOrganizer}>
+    <GameStateProvider
+      game={game}
+      userName={userName}
+      isOrganizer={isActuallyOrganizer}
+    >
       <GameCardContent />
     </GameStateProvider>
   );

@@ -166,4 +166,24 @@ export const gameRouter = createTRPCRouter({
 
       return winningCard;
     }),
+  checkGameActive: publicProcedure
+    .input(z.object({ code: z.string() }))
+    .output(BingoGameSchema.nullable())
+    .query(async ({ ctx, input }) => {
+      const game = await ctx.db.bingoGame.findUnique({
+        where: { code: input.code },
+      });
+
+      return game;
+    }),
+  checkGameActiveMutation: publicProcedure
+    .input(z.object({ code: z.string() }))
+    .output(BingoGameSchema.nullable())
+    .mutation(async ({ ctx, input }) => {
+      const game = await ctx.db.bingoGame.findUnique({
+        where: { code: input.code },
+      });
+
+      return game;
+    }),
 });

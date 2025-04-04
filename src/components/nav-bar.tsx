@@ -13,10 +13,6 @@ const navItems = [
     label: "Create",
     href: "/new-game",
   },
-  {
-    label: "Join",
-    href: "/join-game",
-  },
 ];
 
 export default function NavBar() {
