@@ -137,112 +137,17 @@ export function GameStateProvider({
       totalCells: game.rows * game.cols,
     });
 
-    // For small grids (3x3 or smaller), require a minimum percentage of cells to be marked
-    // This prevents winning too easily on small grids
+    // Win only when all cells are marked (full bingo)
     const totalCells = game.rows * game.cols;
-    if (game.rows === 2 && game.cols === 2) {
-      // Specifically for 2x2 grids, require all 4 cells to be marked
-      if (marks.size < 4) {
-        console.log(
-          `Not enough cells marked for 2x2 grid: ${marks.size}/4 required`
-        );
-        sendDebugInfo("win-check-2x2-fail", {
-          markedCount: marks.size,
-          requiredCount: 4,
-        });
-        return false;
-      }
-    } else if (totalCells <= 9) {
-      // 3x3 or smaller grid (excluding 2x2)
-      const minRequiredCells = Math.ceil(totalCells * 0.75); // Require at least 75% of cells
-      if (marks.size < minRequiredCells) {
-        console.log(
-          `Not enough cells marked for small grid: ${marks.size}/${minRequiredCells} required`
-        );
-        sendDebugInfo("win-check-small-grid-fail", {
-          markedCount: marks.size,
-          requiredCount: minRequiredCells,
-        });
-        return false;
-      }
-    }
-
-    let won = false;
-
-    // Check rows
-    for (let row = 0; row < game.rows; row++) {
-      let rowComplete = true;
-      for (let col = 0; col < game.cols; col++) {
-        const index = row * game.cols + col;
-        if (!marks.has(index)) {
-          rowComplete = false;
-          break;
-        }
-      }
-      if (rowComplete) {
-        console.log(`Row ${row} complete, winning!`);
-        sendDebugInfo("win-check-row-complete", { row });
-        won = true;
-        break;
-      }
-    }
-
-    // Check columns
-    if (!won) {
-      for (let col = 0; col < game.cols; col++) {
-        let colComplete = true;
-        for (let row = 0; row < game.rows; row++) {
-          const index = row * game.cols + col;
-          if (!marks.has(index)) {
-            colComplete = false;
-            break;
-          }
-        }
-        if (colComplete) {
-          console.log(`Column ${col} complete, winning!`);
-          sendDebugInfo("win-check-col-complete", { col });
-          won = true;
-          break;
-        }
-      }
-    }
-
-    // Check diagonal (top-left to bottom-right)
-    if (!won) {
-      let diagonalComplete = true;
-      for (let i = 0; i < Math.min(game.rows, game.cols); i++) {
-        const index = i * game.cols + i;
-        if (!marks.has(index)) {
-          diagonalComplete = false;
-          break;
-        }
-      }
-      if (diagonalComplete) {
-        console.log(`Diagonal (top-left to bottom-right) complete, winning!`);
-        sendDebugInfo("win-check-diag1-complete", {});
-        won = true;
-      }
-    }
-
-    // Check diagonal (top-right to bottom-left)
-    if (!won) {
-      let diagonalComplete = true;
-      for (let i = 0; i < Math.min(game.rows, game.cols); i++) {
-        const index = i * game.cols + (game.cols - 1 - i);
-        if (!marks.has(index)) {
-          diagonalComplete = false;
-          break;
-        }
-      }
-      if (diagonalComplete) {
-        console.log(`Diagonal (top-right to bottom-left) complete, winning!`);
-        sendDebugInfo("win-check-diag2-complete", {});
-        won = true;
-      }
-    }
-
-    console.log(`Win condition result: ${won}`);
-    sendDebugInfo("win-check-result", { won });
+    const won = marks.size === totalCells;
+    
+    sendDebugInfo("win-check-result", { 
+      won, 
+      markedCount: marks.size, 
+      totalCells 
+    });
+    
+    console.log(`Win condition result: ${won} (${marks.size}/${totalCells} cells marked)`);
     return won;
   };
 
