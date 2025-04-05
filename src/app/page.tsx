@@ -62,13 +62,13 @@ export default function Home() {
   return (
     <MaxWidthWrapper className="my-20 space-y-32">
       <div className="flex items-center gap-14 max-lg:flex-col">
-        <div className="relative">
+        <div className="relative w-1/2">
           <Image
-            src="/img/lycee.jpg"
+            src="/hero.png"
             alt="Hero"
-            width={500}
-            height={500}
-            className="border-8 border-blue-400"
+            width={1570}
+            height={535}
+            className="border-8 border-blue-400 object-cover w-full"
           />
           <div className="absolute inset-[3px] border-2 border-border"></div>
         </div>
