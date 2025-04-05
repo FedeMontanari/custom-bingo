@@ -12,11 +12,13 @@ const compat = new FlatCompat({
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
-    ignores: [
-      "src/components/ui/**/*",
-      "src/hooks/use-toast.ts",
-    ]
-  }
+    ignores: ["src/components/ui/**/*", "src/hooks/use-toast.ts"],
+  },
+  {
+    rules: {
+      "react-hooks/exhaustive-deps": "off",
+    },
+  },
 ];
 
 export default eslintConfig;

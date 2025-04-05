@@ -239,7 +239,6 @@ function GameCardContent() {
 
   const content = game.content as string[];
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
-  const [resetNotification, setResetNotification] = useState(false);
   const [forceRenderKey, setForceRenderKey] = useState(Date.now());
   const prevGameActiveRef = useRef(isGameActive);
   const [animationsEnabled, setAnimationsEnabled] = useState(true);
@@ -316,14 +315,6 @@ function GameCardContent() {
           {!isGameActive && !hasWon && !winningPlayer && (
             <div className="text-center text-2xl font-bold text-gray-500">
               This game has ended.
-            </div>
-          )}
-          {resetNotification && (
-            <div className="text-center py-2 px-4 bg-blue-100 border border-blue-300 rounded-md shadow-sm">
-              <p className="text-xl font-bold text-blue-700 animate-pulse flex items-center justify-center">
-                <RefreshCw className="h-5 w-5 mr-2 animate-spin" />
-                Game has been reset! Ready to play again!
-              </p>
             </div>
           )}
 
@@ -473,7 +464,6 @@ export default function GameCardWrapper({
         playerName: userName,
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActuallyOrganizer, isLoading, card, userName, game.code]);
 
   if (!userName || (!hasCard && !isLoading)) {

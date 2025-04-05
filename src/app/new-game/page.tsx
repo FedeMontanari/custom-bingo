@@ -104,7 +104,7 @@ export default function NewGamePage() {
       (_, index) => content[index] ?? ""
     );
     form.setValue("content", contentArray);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [rows, cols]);
 
   return (
