@@ -46,6 +46,144 @@ export function GameStateProvider({
   const hasWonRef = useRef(false);
   const [gameState, setGameState] = useState(game);
   const router = useRouter();
+  const trpcUtils = api.useUtils();
+
+  // Add leave game mutation
+  const leaveGameMutation = api.game.leaveGame.useMutation();
+
+  // Fetch latest game state when component mounts
+  const { data: latestGame } = api.game.getByCode.useQuery(
+    { code: game.code as string },
+    {
+      refetchOnMount: true,
+      refetchOnWindowFocus: true,
+    }
+  );
+
+  // Update game state when latest game data is available
+  useEffect(() => {
+    if (latestGame) {
+      setGameState(latestGame);
+    }
+  }, [latestGame]);
+
+  // Handle player leaving the game
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      leaveGameMutation.mutate({
+        code: game.code as string,
+        playerName: userName,
+      });
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [game.code, userName]);
+
+  // Subscribe to game updates via Supabase Realtime
+  useEffect(() => {
+    const channel = realtimeClient
+      .channel("game-" + game.code)
+      .on(
+        "broadcast",
+        { event: "player-joined" },
+        ({ payload }: { payload: { playerName: string } }) => {
+          // Update the game state with the new player
+          setGameState((prev) => ({
+            ...prev,
+            players: [...prev.players, payload.playerName],
+          }));
+        }
+      )
+      .on(
+        "broadcast",
+        { event: "player-left" },
+        ({ payload }: { payload: { playerName: string } }) => {
+          // Update the game state by removing the player
+          setGameState((prev) => ({
+            ...prev,
+            players: prev.players.filter((p) => p !== payload.playerName),
+          }));
+        }
+      )
+      .on(
+        "broadcast",
+        { event: "player-won" },
+        ({ payload }: { payload: { playerName: string } }) => {
+          if (payload.playerName !== userName) {
+            setWinningPlayer(payload.playerName);
+          }
+          // Update game state to inactive for all players immediately
+          setGameState((prev) => ({
+            ...prev,
+            isActive: false,
+          }));
+        }
+      )
+      .on(
+        "broadcast",
+        { event: "game-reset" },
+        ({
+          payload,
+        }: {
+          payload: { timestamp: number; organizerName: string };
+        }) => {
+          // Reset local win state
+          setHasWon(false);
+          hasWonRef.current = false;
+          setWinningPlayer(null);
+
+          // Clear marked items with a small delay to ensure smooth transition
+          setTimeout(() => {
+            setMarkedItems(new Set());
+          }, 50);
+
+          // Update game active state
+          setGameState((prev) => ({
+            ...prev,
+            isActive: true,
+          }));
+
+          // Invalidate queries to ensure fresh data
+          trpcUtils.game.getCard.invalidate();
+          trpcUtils.game.getWinningCard.invalidate();
+
+          sendDebugInfo("game-reset-received", {
+            player: userName,
+            resetTimestamp: payload.timestamp,
+            organizerName: payload.organizerName,
+          });
+
+          // Force a full page refresh after a short delay
+          setTimeout(() => {
+            router.refresh();
+          }, 100);
+        }
+      )
+      .on(
+        "broadcast",
+        { event: "debug-info" },
+        ({
+          payload,
+        }: {
+          payload: { player: string; message: string; data: unknown };
+        }) => {
+          console.log(
+            `[DEBUG from ${payload.player}]`,
+            payload.message,
+            payload.data
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [game.code, userName, trpcUtils]);
 
   // Query for the player's card
   const { data: card } = api.game.getCard.useQuery(
@@ -79,9 +217,9 @@ export function GameStateProvider({
       if (data.hasWon) {
         setHasWon(true);
         // Also update game state to inactive immediately for the organizer
-        setGameState(prev => ({
+        setGameState((prev) => ({
           ...prev,
-          isActive: false
+          isActive: false,
         }));
       }
     },
@@ -89,8 +227,6 @@ export function GameStateProvider({
       console.error(error);
     },
   });
-
-  const trpcUtils = api.useUtils();
 
   const resetGameMutation = api.game.resetGame.useMutation({
     onSuccess: (data) => {
@@ -100,21 +236,21 @@ export function GameStateProvider({
       setHasWon(false);
       hasWonRef.current = false;
       setWinningPlayer(null);
-      
+
       // Clear marked items with a small delay to ensure smooth transition
       setTimeout(() => {
         setMarkedItems(new Set());
       }, 50);
-      
+
       // Invalidate queries to ensure fresh data
       trpcUtils.game.getCard.invalidate();
       trpcUtils.game.getWinningCard.invalidate();
-      
-      sendDebugInfo("game-reset-success", { 
+
+      sendDebugInfo("game-reset-success", {
         organizer: userName,
-        gameCode: game.code
+        gameCode: game.code,
       });
-      
+
       // Force a full page refresh after a short delay
       setTimeout(() => {
         router.refresh();
@@ -122,9 +258,9 @@ export function GameStateProvider({
     },
     onError: (error) => {
       console.error("Error resetting game:", error);
-      sendDebugInfo("game-reset-error", { 
+      sendDebugInfo("game-reset-error", {
         error: error.message,
-        organizer: userName
+        organizer: userName,
       });
     },
   });
@@ -136,7 +272,7 @@ export function GameStateProvider({
     }
 
     sendDebugInfo("game-reset-requested", { organizer: userName });
-    
+
     return new Promise<void>((resolve, reject) => {
       resetGameMutation.mutate(
         {
@@ -154,66 +290,6 @@ export function GameStateProvider({
       );
     });
   };
-
-  // Subscribe to win events and game reset events
-  useEffect(() => {
-    const channel = realtimeClient
-      .channel("game-" + game.code)
-      .on("broadcast", { event: "player-won" }, ({ payload }) => {
-        if (payload.playerName !== userName) {
-          setWinningPlayer(payload.playerName);
-        }
-        // Update game state to inactive for all players immediately
-        setGameState(prev => ({
-          ...prev,
-          isActive: false
-        }));
-      })
-      .on("broadcast", { event: "game-reset" }, ({ payload }) => {
-        // Reset local win state
-        setHasWon(false);
-        hasWonRef.current = false;
-        setWinningPlayer(null);
-        
-        // Clear marked items with a small delay to ensure smooth transition
-        setTimeout(() => {
-          setMarkedItems(new Set());
-        }, 50);
-        
-        // Update game active state
-        setGameState(prev => ({
-          ...prev,
-          isActive: true
-        }));
-        
-        // Invalidate queries to ensure fresh data
-        trpcUtils.game.getCard.invalidate();
-        trpcUtils.game.getWinningCard.invalidate();
-        
-        sendDebugInfo("game-reset-received", { 
-          player: userName,
-          resetTimestamp: payload.timestamp,
-          organizerName: payload.organizerName
-        });
-        
-        // Force a full page refresh after a short delay
-        setTimeout(() => {
-          router.refresh();
-        }, 100);
-      })
-      .on("broadcast", { event: "debug-info" }, ({ payload }) => {
-        console.log(
-          `[DEBUG from ${payload.player}]`,
-          payload.message,
-          payload.data
-        );
-      })
-      .subscribe();
-
-    return () => {
-      channel.unsubscribe();
-    };
-  }, [game.code, userName]);
 
   // Send debug info to realtime channel
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -251,14 +327,16 @@ export function GameStateProvider({
     // Win only when all cells are marked (full bingo)
     const totalCells = game.rows * game.cols;
     const won = marks.size === totalCells;
-    
-    sendDebugInfo("win-check-result", { 
-      won, 
-      markedCount: marks.size, 
-      totalCells 
+
+    sendDebugInfo("win-check-result", {
+      won,
+      markedCount: marks.size,
+      totalCells,
     });
-    
-    console.log(`Win condition result: ${won} (${marks.size}/${totalCells} cells marked)`);
+
+    console.log(
+      `Win condition result: ${won} (${marks.size}/${totalCells} cells marked)`
+    );
     return won;
   };
 

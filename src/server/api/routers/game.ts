@@ -64,6 +64,25 @@ export const gameRouter = createTRPCRouter({
         throw new Error("Game not found");
       }
 
+      // Add player to game's players array if not already there
+      if (!game.players.includes(playerName)) {
+        await ctx.db.bingoGame.update({
+          where: { code },
+          data: {
+            players: {
+              push: playerName,
+            },
+          },
+        });
+
+        // Broadcast the player join event to all clients
+        await realtimeClient.channel("game-" + code).send({
+          type: "broadcast",
+          event: "player-joined",
+          payload: { playerName },
+        });
+      }
+
       const card = await ctx.db.bingoCard.create({
         data: {
           gameId: game.id,
@@ -114,12 +133,14 @@ export const gameRouter = createTRPCRouter({
 
       const card = await ctx.db.bingoCard.update({
         where: {
-          id: (await ctx.db.bingoCard.findFirst({
-            where: {
-              gameId: game.id,
-              playerName: input.playerName,
-            },
-          }))?.id,
+          id: (
+            await ctx.db.bingoCard.findFirst({
+              where: {
+                gameId: game.id,
+                playerName: input.playerName,
+              },
+            })
+          )?.id,
         },
         data: {
           hasWon: input.hasWon,
@@ -134,13 +155,11 @@ export const gameRouter = createTRPCRouter({
           data: { isActive: false },
         });
 
-        await realtimeClient
-          .channel('game-' + input.code)
-          .send({
-            type: 'broadcast',
-            event: 'player-won',
-            payload: { playerName: input.playerName }
-          });
+        await realtimeClient.channel("game-" + input.code).send({
+          type: "broadcast",
+          event: "player-won",
+          payload: { playerName: input.playerName },
+        });
       }
 
       return card;
@@ -187,14 +206,16 @@ export const gameRouter = createTRPCRouter({
       return game;
     }),
   resetGame: publicProcedure
-    .input(z.object({ 
-      code: z.string(), 
-      organizerName: z.string() 
-    }))
+    .input(
+      z.object({
+        code: z.string(),
+        organizerName: z.string(),
+      })
+    )
     .output(BingoGameSchema)
     .mutation(async ({ ctx, input }) => {
       const { code, organizerName } = input;
-      
+
       // Find the game
       const game = await ctx.db.bingoGame.findUnique({
         where: { code },
@@ -218,23 +239,60 @@ export const gameRouter = createTRPCRouter({
       // Reset all player cards for this game
       await ctx.db.bingoCard.updateMany({
         where: { gameId: game.id },
-        data: { 
+        data: {
           hasWon: false,
-          wonAt: null 
+          wonAt: null,
         },
       });
 
       // Notify all clients that the game has been reset
-      await realtimeClient
-        .channel('game-' + code)
-        .send({
-          type: 'broadcast',
-          event: 'game-reset',
-          payload: { 
-            organizerName,
-            timestamp: new Date().toISOString()
-          }
-        });
+      await realtimeClient.channel("game-" + code).send({
+        type: "broadcast",
+        event: "game-reset",
+        payload: {
+          organizerName,
+          timestamp: new Date().toISOString(),
+        },
+      });
+
+      return updatedGame;
+    }),
+  leaveGame: publicProcedure
+    .input(
+      z.object({
+        code: z.string(),
+        playerName: z.string(),
+      })
+    )
+    .output(BingoGameSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { code, playerName } = input;
+
+      // Find the game
+      const game = await ctx.db.bingoGame.findUnique({
+        where: { code },
+      });
+
+      if (!game) {
+        throw new Error("Game not found");
+      }
+
+      // Remove player from game's players array
+      const updatedGame = await ctx.db.bingoGame.update({
+        where: { code },
+        data: {
+          players: {
+            set: game.players.filter((p) => p !== playerName),
+          },
+        },
+      });
+
+      // Broadcast the player leave event to all clients
+      await realtimeClient.channel("game-" + code).send({
+        type: "broadcast",
+        event: "player-left",
+        payload: { playerName },
+      });
 
       return updatedGame;
     }),
